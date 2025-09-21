@@ -2,7 +2,7 @@
 Port scanning module package
 """
 
-# Use relative import
-from .port_scan import PortScanModule
+# Use absolute import
+from aegis.modules.recon.port_scan.port_scan import PortScanModule
 
 __all__ = ['PortScanModule']

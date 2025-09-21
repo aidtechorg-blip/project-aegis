@@ -2,9 +2,9 @@
 Reconnaissance modules for Project Aegis
 """
 
-# Use relative imports
-from .subdomain_enum.subdomain_enum import SubdomainEnumModule
-from .osint.osint import OSINTModule
-from .port_scan.port_scan import PortScanModule
+# Use absolute imports
+from aegis.modules.recon.subdomain_enum.subdomain_enum import SubdomainEnumModule
+from aegis.modules.recon.osint.osint import OSINTModule
+from aegis.modules.recon.port_scan.port_scan import PortScanModule
 
 __all__ = ['SubdomainEnumModule', 'OSINTModule', 'PortScanModule']

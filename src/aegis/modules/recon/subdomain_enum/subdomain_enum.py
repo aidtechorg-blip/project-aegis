@@ -7,8 +7,8 @@ import asyncio
 import aiohttp
 import dns.resolver
 from typing import Dict, List, Any
-from ...base_recon import BaseReconModule
-from ....core.framework import Target
+from aegis.modules.base_recon import BaseReconModule
+from aegis.core.framework import Target
 
 class SubdomainEnumModule(BaseReconModule):
     """Subdomain enumeration module"""

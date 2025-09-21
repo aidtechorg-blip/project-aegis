@@ -2,7 +2,7 @@
 Subdomain enumeration module package
 """
 
-# Use relative import
-from .subdomain_enum import SubdomainEnumModule
+# Use absolute import
+from aegis.modules.recon.subdomain_enum.subdomain_enum import SubdomainEnumModule
 
 __all__ = ['SubdomainEnumModule']

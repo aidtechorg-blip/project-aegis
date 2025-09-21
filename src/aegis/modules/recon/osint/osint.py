@@ -6,8 +6,8 @@ Collects open source intelligence about targets
 import requests
 import json
 from typing import Dict, List, Any
-from ...base_recon import BaseReconModule
-from ....core.framework import Target
+from aegis.modules.base_recon import BaseReconModule
+from aegis.core.framework import Target
 
 class OSINTModule(BaseReconModule):
     """OSINT gathering module"""

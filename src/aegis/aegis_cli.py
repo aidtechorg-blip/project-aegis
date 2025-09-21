@@ -15,8 +15,8 @@ from typing import Dict, List, Any, Optional
 # Add the src directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from .core.framework import AegisFramework, Target
-from .modules import SubdomainEnumModule, OSINTModule, PortScanModule
+from aegis.core.framework import AegisFramework, Target
+from aegis.modules import SubdomainEnumModule, OSINTModule, PortScanModule
 
 class AegisCLI:
     """Main CLI handler for Project Aegis"""
