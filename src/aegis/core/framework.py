@@ -69,6 +69,11 @@ class AegisFramework:
         self.results = []
         self.config = self.load_config(config_path)
         self.current_target = None
+    
+    def set_target(self, target: Target):
+        """Set the current target for operations"""
+        self.current_target = target
+        logger.info(f"Target set to: {target.host}")
         
     def load_config(self, config_path: Optional[str]) -> Dict:
         """Load framework configuration"""
