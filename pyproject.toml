@@ -53,9 +53,6 @@ Issues = "https://github.com/your-username/project-aegis/issues"
 package-dir = {"" = "src"}
 packages = {find = {where = ["src"]}}
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.black]
 line-length = 88
 target-version = ['py38']
