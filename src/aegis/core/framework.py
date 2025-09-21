@@ -1,3 +1,66 @@
+"""
+Aegis Core Framework - Module loader and data management system
+"""
+
+import importlib
+import inspect
+import json
+import os
+import time
+import logging
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('aegis_core')
+
+@dataclass
+class Target:
+    """Representation of a target system"""
+    host: str
+    ip: Optional[str] = None
+    ports: List[int] = None
+    services: Dict[int, str] = None
+    os: Optional[str] = None
+    vulnerabilities: List[Dict] = None
+    subdomains: List[str] = None
+    osint_data: Dict[str, Any] = None
+    
+    def __post_init__(self):
+        if self.ports is None:
+            self.ports = []
+        if self.services is None:
+            self.services = {}
+        if self.vulnerabilities is None:
+            self.vulnerabilities = []
+        if self.subdomains is None:
+            self.subdomains = []
+        if self.osint_data is None:
+            self.osint_data = {}
+
+@dataclass
+class ScanResult:
+    """Container for scan results"""
+    target: Target
+    module: str
+    data: Dict[str, Any]
+    timestamp: float
+    success: bool
+    error: Optional[str] = None
+
+class BaseModule:
+    """Base class that all Aegis modules should inherit from"""
+    name = "base_module"
+    description = "Base module for all Aegis modules"
+    category = "utility"
+    safe = True  # Whether this module is safe to run in safe mode
+    
+    def run(self, target: Target, **kwargs) -> Dict[str, Any]:
+        """Main method that modules should override"""
+        raise NotImplementedError("Modules must implement the run method")
+
 class AegisFramework:
     """Core framework class for module management and data flow"""
     
