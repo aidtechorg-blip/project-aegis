@@ -83,13 +83,13 @@ class SubdomainEnumModule(BaseReconModule):
         return found_subdomains
     
     def run(self, target: Target, **kwargs) -> Dict[str, Any]:
-        """Execute subdomain enumeration"""
+        """Execute subdomain enumeration - FIXED async issue"""
         if not self.validate_target(target):
             return {"error": "Invalid target", "success": False}
         
         # Get parameters
         wordlist = kwargs.get('wordlist', None)
-        method = kwargs.get('method', 'async')  # 'async' or 'dns'
+        method = kwargs.get('method', 'dns')  # Changed default to DNS to avoid async issues
         max_workers = kwargs.get('max_workers', 10)
         
         # Use provided wordlist or default
@@ -106,14 +106,19 @@ class SubdomainEnumModule(BaseReconModule):
         
         # Choose enumeration method
         if method == 'async':
-            # Asynchronous HTTP checking
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            found_subdomains = loop.run_until_complete(
-                self.check_subdomains_async(target.host, subdomains_to_check)
-            )
+            # Asynchronous HTTP checking - FIXED event loop handling
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                found_subdomains = loop.run_until_complete(
+                    self.check_subdomains_async(target.host, subdomains_to_check)
+                )
+                loop.close()
+            except RuntimeError as e:
+                return {"error": f"Async error: {e}", "success": False}
         elif method == 'dns':
-            # DNS resolution
+            # DNS resolution (synchronous - more reliable)
             found_subdomains = self.check_subdomains_dns(target.host, subdomains_to_check)
         else:
             return {"error": "Invalid method", "success": False}
