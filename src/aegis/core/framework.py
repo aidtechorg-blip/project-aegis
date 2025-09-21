@@ -91,97 +91,51 @@ class AegisFramework:
         return default_config
     
     def discover_modules(self) -> Dict[str, Any]:
-        """Discover and load available modules"""
-        module_paths = self.config.get("module_paths", ["modules"])
+        """Discover and load available modules - Manual registration"""
         self.modules = {}
-        
-        for base_path in module_paths:
-            full_module_path = os.path.join(os.path.dirname(__file__), '..', '..', base_path)
-            if not os.path.exists(full_module_path):
-                logger.warning(f"Module path {full_module_path} does not exist")
-                continue
-                
-            for module_file in Path(full_module_path).rglob("*.py"):
-                if module_file.name == "__init__.py":
-                    continue
-                    
-                module_name = module_file.stem
-                module_relative_path = str(module_file.relative_to(full_module_path).parent).replace(os.sep, '.')
-                
-                try:
-                    # Import module using proper package structure
-                    full_module_import = f"modules.{module_relative_path}.{module_name}"
-                    if module_relative_path == '.':
-                        full_module_import = f"modules.{module_name}"
-                    
-                    module = importlib.import_module(full_module_import)
-                    
-                    # Check if it's a valid Aegis module
-                    if hasattr(module, "Module") and inspect.isclass(module.Module):
-                        module_class = module.Module
-                        if hasattr(module_class, "name") and hasattr(module_class, "run"):
-                            self.modules[module_class.name] = {
-                                "class": module_class,
-                                "description": getattr(module_class, "description", ""),
-                                "category": getattr(module_class, "category", "unknown"),
-                                "safe": getattr(module_class, "safe", True)
-                            }
-                            logger.info(f"Loaded module: {module_class.name}")
-                except ImportError as e:
-                    logger.error(f"Failed to import module {module_name}: {e}")
-                except Exception as e:
-                    logger.error(f"Error loading module {module_name}: {e}")
-                    
+    
+        # Manually register all known modules
+        modules_to_register = [
+            {
+                "name": "subdomain_enum",
+                "class": None,  # We'll import this dynamically
+                "import_path": "aegis.modules.recon.subdomain_enum.subdomain_enum.SubdomainEnumModule"
+             },
+            {
+                "name": "osint", 
+                "class": None,
+                "import_path": "aegis.modules.recon.osint.osint.OSINTModule"
+            },
+            {
+                "name": "port_scan",
+                "class": None, 
+                "import_path": "aegis.modules.recon.port_scan.port_scan.PortScanModule"
+            }
+        ]
+    
+        for module_info in modules_to_register:
+            try:
+                # Dynamically import the module class
+                module_path, class_name = module_info["import_path"].rsplit('.', 1)
+                module = importlib.import_module(module_path)
+                module_class = getattr(module, class_name)
+            
+                # Create instance and register
+                module_instance = module_class()
+                self.modules[module_info["name"]] = {
+                    "class": module_class,
+                    "description": getattr(module_class, "description", ""),
+                    "category": getattr(module_class, "category", "unknown"),
+                    "safe": getattr(module_class, "safe", True)
+                }
+                logger.info(f"Loaded module: {module_info['name']}")
+            
+            except ImportError as e:
+                logger.error(f"Failed to import module {module_info['name']}: {e}")
+            except Exception as e:
+                logger.error(f"Error loading module {module_info['name']}: {e}")
+    
         return self.modules
-    
-    def set_target(self, target: Target):
-        """Set the current target for operations"""
-        self.current_target = target
-        logger.info(f"Target set to: {target.host}")
-    
-    def run_module(self, module_name: str, **kwargs) -> ScanResult:
-        """Execute a specific module"""
-        if module_name not in self.modules:
-            return {
-                "success": False,
-                "error": f"Module {module_name} not found",
-                "module": module_name
-            }
-            
-        module_info = self.modules[module_name]
-        
-        # Safety check
-        if self.config.get("safe_mode", True) and not module_info.get("safe", True):
-            return {
-                "success": False,
-                "error": f"Module {module_name} is not allowed in safe mode",
-                "module": module_name
-            }
-        
-        try:
-            module_instance = module_info["class"]()
-            result_data = module_instance.run(self.current_target, **kwargs)
-            
-            result = {
-                "success": True,
-                "module": module_name,
-                "data": result_data,
-                "timestamp": time.time()
-            }
-            
-            self.results.append(result)
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error running module {module_name}: {e}")
-            result = {
-                "success": False,
-                "error": str(e),
-                "module": module_name,
-                "timestamp": time.time()
-            }
-            self.results.append(result)
-            return result
     
     def export_results(self, format: str = None) -> str:
         """Export results in specified format"""

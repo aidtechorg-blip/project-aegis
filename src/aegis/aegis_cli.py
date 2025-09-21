@@ -155,7 +155,7 @@ Examples:
             print(f"[*] Running {module_name}...")
             
             module_args = {}
-            if module_name == "osint" and args.shodan_key:
+            if module_name == "osint" and hasattr(args, 'shodan_key') and args.shodan_key:
                 module_args["shodan_key"] = args.shodan_key
             
             result = self.framework.run_module(module_name, **module_args)
