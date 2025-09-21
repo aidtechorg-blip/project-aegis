@@ -6,8 +6,8 @@ Scans for open ports on target systems
 import socket
 import concurrent.futures
 from typing import Dict, List, Any
-from modules.recon.base_recon import BaseReconModule
-from aegis.core.framework import Target
+from ...base_recon import BaseReconModule  
+from ....core.framework import Target
 
 class PortScanModule(BaseReconModule):
     """Port scanning module"""

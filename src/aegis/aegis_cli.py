@@ -16,9 +16,7 @@ from typing import Dict, List, Any, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from .core.framework import AegisFramework, Target
-from .modules.recon.subdomain_enum.subdomain_enum import SubdomainEnumModule
-from .modules.recon.osint.osint import OSINTModule
-from .modules.recon.port_scan.port_scan import PortScanModule
+from .modules import SubdomainEnumModule, OSINTModule, PortScanModule
 
 class AegisCLI:
     """Main CLI handler for Project Aegis"""

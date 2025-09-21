@@ -6,7 +6,7 @@ Provides common functionality for all reconnaissance modules
 import time
 import random
 from typing import Dict, List, Any
-from aegis.core.framework import BaseModule, Target
+from ...core.framework import BaseModule, Target
 
 class BaseReconModule(BaseModule):
     """Base class for all reconnaissance modules"""
