@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-aegis"
+version = "0.1.0"
+description = "Next-generation ethical penetration testing framework"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Project Aegis Team", email = "aegis-team@example.com"}
+]
+keywords = ["security", "pentesting", "ethical-hacking", "cybersecurity"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+]
+
+dependencies = [
+    "requests>=2.28.0",
+    "beautifulsoup4>=4.11.0",
+    "python-nmap>=0.7.1",
+    "paramiko>=2.11.0",
+    "scapy>=2.5.0",
+    "aiohttp>=3.8.0",
+    "async-timeout>=4.0.0",
+    "dnspython>=2.2.0",
+    "colorama>=0.4.0",
+    "pyfiglet>=0.8.post1",
+    "rich>=12.0.0",
+]
+
+[project.scripts]
+aegis = "aegis:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/project-aegis"
+Documentation = "https://github.com/your-username/project-aegis/docs"
+Repository = "https://github.com/your-username/project-aegis"
+Issues = "https://github.com/your-username/project-aegis/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
