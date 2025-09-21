@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 [project.scripts]
-aegis = "aegis:main"
+aegis = "aegis_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/your-username/project-aegis"
