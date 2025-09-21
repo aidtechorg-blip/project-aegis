@@ -1,432 +1,147 @@
 #!/usr/bin/env python3
 """
-Project Aegis - Main CLI Interface
-Next-Generation Ethical Penetration Testing Framework
+Project Aegis CLI - Advanced Reconnaissance Framework
+Command-line interface for Project Aegis
 """
 
 import argparse
 import sys
-import os
-import asyncio
-import json
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
-# Add the src directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-from aegis.core.framework import AegisFramework, Target
-from aegis.modules import SubdomainEnumModule, OSINTModule, PortScanModule
+from aegis.core.framework import Target
+from aegis.modules.recon.osint.osint import OSINTModule
+from aegis.utils.formatter import OutputFormatter
+from aegis.core.config import config
 
 class AegisCLI:
-    """Main CLI handler for Project Aegis"""
+    """Command-line interface for Project Aegis"""
     
     def __init__(self):
-        self.framework = AegisFramework()
-        self.results = []
-        self.current_target = None
-        
-    def print_banner(self):
-        """Print the tool banner"""
-        banner = r"""
-    ╔═══════════════════════════════════════════════════╗
-    ║                  PROJECT AEGIS                   ║
-    ║           Next-Gen Penetration Testing           ║
-    ╚═══════════════════════════════════════════════════╝
-    """
-        print(banner)
-        print("    Ethical Penetration Testing Framework")
-        print("    Version: 0.1.0 | Phase 1: Reconnaissance")
-        print("    " + "="*47)
-        print()
+        self.parser = self.setup_parser()
+        self.args = self.parser.parse_args()
+        self.formatter = OutputFormatter()
     
     def setup_parser(self) -> argparse.ArgumentParser:
         """Setup command line argument parser"""
         parser = argparse.ArgumentParser(
-            description="Project Aegis - Ethical Penetration Testing Framework",
+            description="Project Aegis - Advanced Reconnaissance Framework",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  aegis recon example.com --all              # Full reconnaissance
-  aegis recon example.com -sp                # Subdomains and ports only
-  aegis scan 192.168.1.1 -p 1-1000           # Custom port range
-  aegis osint example.com --shodan-key KEY   # OSINT with Shodan
-  aegis test --full                          # Run complete test suite
+  aegis config set shodan YOUR_API_KEY
+  aegis recon osint example.com --format rich
+  aegis recon osint 192.168.1.1 --format json
             """
         )
         
-        # Main commands
-        subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+        subparsers = parser.add_subparsers(dest='command', help='Command to execute')
+        
+        # Config command
+        config_parser = subparsers.add_parser('config', help='Manage configuration')
+        config_subparsers = config_parser.add_subparsers(dest='subcommand', help='Config subcommand')
+        
+        # Config set command
+        set_parser = config_subparsers.add_parser('set', help='Set an API key')
+        set_parser.add_argument('service', help='Service name (shodan, virustotal, etc)')
+        set_parser.add_argument('key', help='API key')
+        
+        # Config list command  
+        config_subparsers.add_parser('list', help='List configured API keys')
         
         # Recon command
-        recon_parser = subparsers.add_parser("recon", help="Comprehensive reconnaissance")
-        recon_parser.add_argument("target", help="Target domain or IP address")
-        recon_parser.add_argument("-s", "--subdomains", action="store_true", 
-                                 help="Perform subdomain enumeration")
-        recon_parser.add_argument("-p", "--ports", action="store_true", 
-                                 help="Perform port scanning")
-        recon_parser.add_argument("-o", "--osint", action="store_true", 
-                                 help="Gather OSINT information")
-        recon_parser.add_argument("-a", "--all", action="store_true", 
-                                 help="Run all reconnaissance modules")
-        recon_parser.add_argument("--output", default="json", 
-                                 choices=["json", "text", "csv"], 
-                                 help="Output format")
-        recon_parser.add_argument("--save", action="store_true", 
-                                 help="Save results to file")
+        recon_parser = subparsers.add_parser('recon', help='Reconnaissance operations')
+        recon_subparsers = recon_parser.add_subparsers(dest='recon_module', help='Reconnaissance module')
         
-        # Scan command (focused scanning)
-        scan_parser = subparsers.add_parser("scan", help="Focused scanning operations")
-        scan_parser.add_argument("target", help="Target domain or IP address")
-        scan_parser.add_argument("-p", "--ports", default="1-1000", 
-                                help="Port range (e.g., 1-1000, 80,443,22)")
-        scan_parser.add_argument("-t", "--timeout", type=float, default=1.0,
-                                help="Timeout per port (seconds)")
-        scan_parser.add_argument("-w", "--workers", type=int, default=50,
-                                help="Number of concurrent workers")
-        
-        # OSINT command
-        osint_parser = subparsers.add_parser("osint", help="OSINT gathering")
-        osint_parser.add_argument("target", help="Target domain")
-        osint_parser.add_argument("--shodan-key", help="Shodan API key")
-        osint_parser.add_argument("--full", action="store_true", 
-                                 help="Comprehensive OSINT collection")
-        
-        # Test command
-        test_parser = subparsers.add_parser("test", help="Framework testing")
-        test_parser.add_argument("--quick", action="store_true", 
-                                help="Run quick functionality tests")
-        test_parser.add_argument("--full", action="store_true", 
-                                help="Run complete test suite")
-        test_parser.add_argument("--target", default="example.com",
-                                help="Test target")
-        
-        # Info command
-        subparsers.add_parser("info", help="Framework information")
-        
-        # Module command
-        module_parser = subparsers.add_parser("modules", help="Module management")
-        module_parser.add_argument("--list", action="store_true", 
-                                  help="List available modules")
-        module_parser.add_argument("--info", help="Show module information")
+        # OSINT module
+        osint_parser = recon_subparsers.add_parser('osint', help='OSINT gathering')
+        osint_parser.add_argument('target', help='Target domain or IP address')
+        osint_parser.add_argument('--format', choices=['rich', 'json', 'csv', 'text'], 
+                                 default='rich', help='Output format')
+        osint_parser.add_argument('--html-report', action='store_true', 
+                                 help='Generate HTML report')
         
         return parser
     
-    def parse_port_range(self, port_spec: str) -> List[int]:
-        """Parse port range specification"""
-        ports = []
-        for part in port_spec.split(','):
-            if '-' in part:
-                start, end = map(int, part.split('-'))
-                ports.extend(range(start, end + 1))
-            else:
-                ports.append(int(part))
-        return ports
+    def handle_config(self):
+        """Handle configuration commands"""
+        if self.args.command == 'config':
+            if self.args.subcommand == 'set':
+                config.set_api_key(self.args.service, self.args.key)
+                print(f"✅ API key for {self.args.service} saved successfully.")
+            elif self.args.subcommand == 'list':
+                api_keys = config.list_api_keys()
+                if api_keys:
+                    print("🔐 Configured API Keys:")
+                    for service, key in api_keys.items():
+                        masked_key = f"{key[:5]}...{key[-5:]}" if len(key) > 10 else key
+                        print(f"  {service.upper():<15}: {masked_key}")
+                else:
+                    print("❌ No API keys configured. Use 'aegis config set <service> <key>' to add keys.")
     
-    async def run_recon(self, args):
-        """Run comprehensive reconnaissance"""
-        print(f"[*] Starting reconnaissance on: {args.target}")
-        print("[*] Loading modules...")
-        
-        self.framework.discover_modules()
-        self.current_target = Target(host=args.target)
-        self.framework.set_target(self.current_target)
-        
-        results = {}
-        modules_to_run = []
-        
-        # Determine which modules to run
-        if args.all:
-            modules_to_run = ["subdomain_enum", "port_scan", "osint"]
-        else:
-            if args.subdomains:
-                modules_to_run.append("subdomain_enum")
-            if args.ports:
-                modules_to_run.append("port_scan")
-            if args.osint:
-                modules_to_run.append("osint")
-        
-        if not modules_to_run:
-            print("[!] No modules selected. Use --all or specify modules.")
-            return
-        
-        # Run modules
-        for module_name in modules_to_run:
-            print(f"[*] Running {module_name}...")
+    def run_recon(self):
+        """Run reconnaissance operations"""
+        if self.args.command == 'recon':
+            target = Target(self.args.target)
             
-            module_args = {}
-            if module_name == "osint" and hasattr(args, 'shodan_key') and args.shodan_key:
-                module_args["shodan_key"] = args.shodan_key
-            
-            result = self.framework.run_module(module_name, **module_args)
-            results[module_name] = result
-            
-            if result.get("success"):
-                print(f"    ✓ {module_name} completed successfully")
-            else:
-                print(f"    ✗ {module_name} failed: {result.get('error', 'Unknown error')}")
-        
-        # Display results
-        print("\n" + "="*60)
-        print("RECONNAISSANCE RESULTS")
-        print("="*60)
-        print(f"Target: {args.target}")
-        print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print()
-        
-        self.display_results(results, args.output)
-        
-        # Save results if requested
-        if args.save:
-            filename = f"aegis_recon_{args.target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            with open(filename, 'w') as f:
-                f.write(self.framework.export_results())
-            print(f"\n[*] Results saved to: {filename}")
+            if self.args.recon_module == 'osint':
+                self.run_osint(target)
     
-    def display_results(self, results: Dict, format: str = "text"):
-        """Display results in specified format"""
-        if format == "json":
-            print(json.dumps(results, indent=2))
-            return
-        
-        for module_name, result in results.items():
-            if not result.get("success"):
-                continue
-                
-            print(f"\n[{module_name.upper()}]")
-            print("-" * 40)
-            
-            if module_name == "subdomain_enum":
-                subdomains = result.get("subdomains_found", [])
-                print(f"Subdomains found: {len(subdomains)}")
-                for subdomain in subdomains:
-                    print(f"  • {subdomain}")
-            
-            elif module_name == "port_scan":
-                open_ports = result.get("open_ports", [])
-                print(f"Open ports: {len(open_ports)}")
-                for port_info in open_ports:
-                    banner = port_info.get("banner", "").replace('\n', ' ').replace('\r', '')[:50]
-                    print(f"  • Port {port_info['port']}: {banner}...")
-            
-            elif module_name == "osint":
-                print("OSINT Information:")
-                for key, value in result.items():
-                    if key not in ['success', 'error']:
-                        if isinstance(value, list):
-                            print(f"  • {key}:")
-                            for item in value:
-                                print(f"    - {item}")
-                        else:
-                            print(f"  • {key}: {value}")
-    
-    async def run_scan(self, args):
-        """Run focused port scanning"""
-        print(f"[*] Starting port scan on: {args.target}")
-        
-        # Parse port range
-        try:
-            ports = self.parse_port_range(args.ports)
-            print(f"[*] Scanning {len(ports)} ports with {args.workers} workers")
-        except ValueError:
-            print("[!] Invalid port specification. Use format: 1-1000 or 80,443,22")
-            return
-        
-        # Initialize and run port scan
-        port_module = PortScanModule()
-        target = Target(host=args.target)
-        
-        result = port_module.run(target, ports=ports, timeout=args.timeout, max_workers=args.workers)
-        
-        if result.get("success"):
-            print("\n[PORT SCAN RESULTS]")
-            print("=" * 40)
-            print(f"Target: {args.target}")
-            print(f"IP: {result.get('target_ip', 'Unknown')}")
-            print(f"Open ports: {len(result.get('open_ports', []))}")
-            print(f"Ports scanned: {result.get('ports_scanned', 0)}")
-            print()
-            
-            for port_info in result.get("open_ports", []):
-                banner = port_info.get("banner", "No banner").replace('\n', ' ').replace('\r', '')
-                print(f"  {port_info['port']}/tcp - {banner[:60]}...")
-        else:
-            print(f"[!] Scan failed: {result.get('error', 'Unknown error')}")
-    
-    async def run_osint(self, args):
+    def run_osint(self, target: Target):
         """Run OSINT gathering"""
-        print(f"[*] Gathering OSINT for: {args.target}")
-        
         osint_module = OSINTModule()
-        target = Target(host=args.target)
         
-        module_args = {}
-        if args.shodan_key:
-            module_args["shodan_key"] = args.shodan_key
+        print(f"🔍 Starting OSINT gathering for {target.host}...")
         
-        result = osint_module.run(target, **module_args)
+        results = osint_module.run(target)
         
-        if result.get("success"):
-            print("\n[OSINT RESULTS]")
-            print("=" * 40)
+        if results.get('success'):
+            self.display_results(results, self.args.format)
             
-            # Display certificate transparency results
-            if "ct_log_subdomains" in result:
-                subdomains = result["ct_log_subdomains"]
-                print(f"Subdomains from Certificate Transparency logs: {len(subdomains)}")
-                for subdomain in subdomains[:10]:  # Show first 10
-                    print(f"  • {subdomain}")
-                if len(subdomains) > 10:
-                    print(f"  • ... and {len(subdomains) - 10} more")
-            
-            # Display other OSINT findings
-            for key, value in result.items():
-                if key not in ['success', 'error', 'ct_log_subdomains'] and value:
-                    print(f"\n{key.replace('_', ' ').title()}:")
-                    if isinstance(value, list):
-                        for item in value:
-                            print(f"  • {item}")
-                    else:
-                        print(f"  {value}")
+            # Generate HTML report if requested
+            if self.args.html_report:
+                report_file = f"aegis_report_{target.host}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                self.formatter.generate_html_report(results, report_file)
+                print(f"\n📊 HTML report generated: {report_file}")
         else:
-            print(f"[!] OSINT gathering failed: {result.get('error', 'Unknown error')}")
+            print(f"❌ OSINT gathering failed: {results.get('error', 'Unknown error')}")
     
-    async def run_test(self, args):
-        """Run framework tests"""
-        print("[*] Running framework tests...")
-        
-        if args.quick:
-            print("[*] Running quick functionality tests...")
-            # Basic functionality tests
-            try:
-                # Test framework initialization
-                framework = AegisFramework()
-                print("✓ Framework initialization")
-                
-                # Test target creation
-                target = Target(host=args.target)
-                print("✓ Target creation")
-                
-                # Test module discovery
-                modules = framework.discover_modules()
-                print(f"✓ Module discovery ({len(modules)} modules found)")
-                
-                print("\n✓ All quick tests passed!")
-                
-            except Exception as e:
-                print(f"✗ Test failed: {e}")
-                return False
-        
-        elif args.full:
-            print("[*] Running complete test suite...")
-            # This would run the full pytest suite
-            try:
-                import subprocess
-                result = subprocess.run([
-                    sys.executable, "-m", "pytest", 
-                    "tests/", "-v", "--tb=short"
-                ], capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    print("✓ All tests passed!")
-                    print(result.stdout)
-                else:
-                    print("✗ Some tests failed")
-                    print(result.stdout)
-                    if result.stderr:
-                        print("Errors:", result.stderr)
-                    return False
-            except Exception as e:
-                print(f"✗ Test execution failed: {e}")
-                return False
-        
+    def display_results(self, results: Dict, format: str = "rich"):
+        """Display results with enhanced formatting"""
+        if format == "json":
+            self.formatter.print_results(results, "json")
+        elif format == "csv":
+            self.formatter.print_results(results, "csv")
+        elif format == "text":
+            self.formatter.print_results(results, "text")
         else:
-            print("[!] Please specify --quick or --full for testing")
-            return False
-        
-        return True
+            self.formatter.print_results(results, "rich")
     
-    def show_info(self):
-        """Show framework information"""
-        self.print_banner()
-        
-        # Discover available modules
-        self.framework.discover_modules()
-        
-        print("Available Modules:")
-        print("-" * 40)
-        for module_name, module_info in self.framework.modules.items():
-            print(f"  • {module_name}: {module_info.get('description', 'No description')}")
-        
-        print("\nUsage Examples:")
-        print("  aegis recon example.com --all")
-        print("  aegis scan 192.168.1.1 -p 1-1000 -w 100")
-        print("  aegis osint example.com --shodan-key YOUR_KEY")
-        print("  aegis test --full")
-        print("\nFor detailed help: aegis <command> --help")
-    
-    def list_modules(self):
-        """List available modules"""
-        self.framework.discover_modules()
-        
-        print("Available Modules:")
-        print("=" * 60)
-        for module_name, module_info in self.framework.modules.items():
-            print(f"\nModule: {module_name}")
-            print(f"Description: {module_info.get('description', 'No description')}")
-            print(f"Category: {module_info.get('category', 'Unknown')}")
-            print(f"Safe: {'Yes' if module_info.get('safe', True) else 'No'}")
-    
-    async def run(self):
-        """Main CLI execution"""
-        self.print_banner()
-        
-        parser = self.setup_parser()
-        args = parser.parse_args()
-        
-        if not args.command:
-            parser.print_help()
+    def run(self):
+        """Main entry point"""
+        if not self.args.command:
+            self.parser.print_help()
             return
         
         try:
-            if args.command == "recon":
-                await self.run_recon(args)
-            elif args.command == "scan":
-                await self.run_scan(args)
-            elif args.command == "osint":
-                await self.run_osint(args)
-            elif args.command == "test":
-                await self.run_test(args)
-            elif args.command == "info":
-                self.show_info()
-            elif args.command == "modules":
-                if args.list:
-                    self.list_modules()
-                elif args.info:
-                    # Show specific module info
-                    pass
-                else:
-                    parser.print_help()
-        
+            if self.args.command == 'config':
+                self.handle_config()
+            elif self.args.command == 'recon':
+                self.run_recon()
+            else:
+                self.parser.print_help()
+                
         except KeyboardInterrupt:
-            print("\n\n[!] Operation cancelled by user")
+            print("\n⏹️  Operation cancelled by user")
+            sys.exit(1)
         except Exception as e:
-            print(f"\n[!] Error: {e}")
-            if hasattr(args, 'debug') and args.debug:
-                import traceback
-                traceback.print_exc()
+            print(f"❌ Error: {str(e)}")
+            sys.exit(1)
 
 def main():
-    """Main entry point"""
-    try:
-        cli = AegisCLI()
-        asyncio.run(cli.run())
-    except KeyboardInterrupt:
-        print("\n[!] Operation cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n[!] Fatal error: {e}")
-        sys.exit(1)
+    """Main function"""
+    cli = AegisCLI()
+    cli.run()
 
 if __name__ == "__main__":
     main()
