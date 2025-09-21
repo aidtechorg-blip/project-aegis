@@ -1,66 +1,3 @@
-"""
-Aegis Core Framework - Module loader and data management system
-"""
-
-import importlib
-import inspect
-import json
-import os
-import time
-import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('aegis_core')
-
-@dataclass
-class Target:
-    """Representation of a target system"""
-    host: str
-    ip: Optional[str] = None
-    ports: List[int] = None
-    services: Dict[int, str] = None
-    os: Optional[str] = None
-    vulnerabilities: List[Dict] = None
-    subdomains: List[str] = None
-    osint_data: Dict[str, Any] = None
-    
-    def __post_init__(self):
-        if self.ports is None:
-            self.ports = []
-        if self.services is None:
-            self.services = {}
-        if self.vulnerabilities is None:
-            self.vulnerabilities = []
-        if self.subdomains is None:
-            self.subdomains = []
-        if self.osint_data is None:
-            self.osint_data = {}
-
-@dataclass
-class ScanResult:
-    """Container for scan results"""
-    target: Target
-    module: str
-    data: Dict[str, Any]
-    timestamp: float
-    success: bool
-    error: Optional[str] = None
-
-class BaseModule:
-    """Base class that all Aegis modules should inherit from"""
-    name = "base_module"
-    description = "Base module for all Aegis modules"
-    category = "utility"
-    safe = True  # Whether this module is safe to run in safe mode
-    
-    def run(self, target: Target, **kwargs) -> Dict[str, Any]:
-        """Main method that modules should override"""
-        raise NotImplementedError("Modules must implement the run method")
-
 class AegisFramework:
     """Core framework class for module management and data flow"""
     
@@ -69,16 +6,16 @@ class AegisFramework:
         self.results = []
         self.config = self.load_config(config_path)
         self.current_target = None
-    
+        
     def set_target(self, target: Target):
         """Set the current target for operations"""
         self.current_target = target
         logger.info(f"Target set to: {target.host}")
-        
+    
     def load_config(self, config_path: Optional[str]) -> Dict:
         """Load framework configuration"""
         default_config = {
-            "module_paths": ["modules"],
+            "module_paths": ["src/aegis/modules"],
             "max_threads": 10,
             "default_timeout": 30,
             "output_format": "json",
@@ -98,14 +35,14 @@ class AegisFramework:
     def discover_modules(self) -> Dict[str, Any]:
         """Discover and load available modules - Manual registration"""
         self.modules = {}
-    
+        
         # Manually register all known modules
         modules_to_register = [
             {
                 "name": "subdomain_enum",
-                "class": None,  # We'll import this dynamically
+                "class": None,
                 "import_path": "aegis.modules.recon.subdomain_enum.subdomain_enum.SubdomainEnumModule"
-             },
+            },
             {
                 "name": "osint", 
                 "class": None,
@@ -117,14 +54,14 @@ class AegisFramework:
                 "import_path": "aegis.modules.recon.port_scan.port_scan.PortScanModule"
             }
         ]
-    
+        
         for module_info in modules_to_register:
             try:
                 # Dynamically import the module class
                 module_path, class_name = module_info["import_path"].rsplit('.', 1)
                 module = importlib.import_module(module_path)
                 module_class = getattr(module, class_name)
-            
+                
                 # Create instance and register
                 module_instance = module_class()
                 self.modules[module_info["name"]] = {
@@ -134,13 +71,57 @@ class AegisFramework:
                     "safe": getattr(module_class, "safe", True)
                 }
                 logger.info(f"Loaded module: {module_info['name']}")
-            
+                
             except ImportError as e:
                 logger.error(f"Failed to import module {module_info['name']}: {e}")
             except Exception as e:
                 logger.error(f"Error loading module {module_info['name']}: {e}")
-    
+        
         return self.modules
+    
+    def run_module(self, module_name: str, **kwargs) -> Dict[str, Any]:
+        """Execute a specific module"""
+        if module_name not in self.modules:
+            return {
+                "success": False, 
+                "error": f"Module {module_name} not found",
+                "module": module_name
+            }
+            
+        module_info = self.modules[module_name]
+        
+        # Safety check
+        if self.config.get("safe_mode", True) and not module_info.get("safe", True):
+            return {
+                "success": False,
+                "error": f"Module {module_name} is not allowed in safe mode",
+                "module": module_name
+            }
+        
+        try:
+            module_instance = module_info["class"]()
+            result_data = module_instance.run(self.current_target, **kwargs)
+            
+            result = {
+                "success": True,
+                "module": module_name,
+                "data": result_data,
+                "timestamp": time.time()
+            }
+            
+            self.results.append(result)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error running module {module_name}: {e}")
+            result = {
+                "success": False,
+                "error": str(e),
+                "module": module_name,
+                "timestamp": time.time()
+            }
+            self.results.append(result)
+            return result
     
     def export_results(self, format: str = None) -> str:
         """Export results in specified format"""
